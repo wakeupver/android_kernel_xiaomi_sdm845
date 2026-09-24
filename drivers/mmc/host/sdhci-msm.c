@@ -5200,6 +5200,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (msm_host->pdata->nonhotplug)
 		msm_host->mmc->caps2 |= MMC_CAP2_NONHOTPLUG;
 
+	/*
+	 * SDR104 (1.8V signaling, ~208MHz clock) has the least timing/
+	 * signal-integrity headroom of the UHS modes and is the mode
+	 * active during the repeated field "card removed" dropouts on
+	 * this board's removable slot (mmc_sd_detect: Unable to
+	 * re-detect card). Rather than chase an ever-longer retry
+	 * timeout for a bus mode that is provably marginal here, drop
+	 * it for the removable card only so negotiation falls back to
+	 * the next best UHS mode (DDR50/SDR50). Nonremovable (internal)
+	 * controllers on this SoC are untouched.
+	 */
+	if (!msm_host->pdata->nonremovable)
+		msm_host->mmc->caps &= ~MMC_CAP_UHS_SDR104;
+
 	msm_host->mmc->sdr104_wa = msm_host->pdata->sdr104_wa;
 
 	/* Initialize ICE if present */

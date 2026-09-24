@@ -1196,7 +1196,18 @@ static void mmc_sd_detect(struct mmc_host *host)
 {
 	int err = 0;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-	int retries = 5;
+	/*
+	 * A transient bus/electrical dropout (marginal contact, IO-rail
+	 * noise during UHS voltage switching, thermal drift on the vdd-io
+	 * LDO, etc.) can make the card briefly stop responding without it
+	 * actually being removed. The original 5 retries x udelay(5) only
+	 * covers ~25us total, which is far shorter than a real debounce/
+	 * settle time, so it always exhausts and the card gets declared
+	 * removed even though it comes back on its own a moment later.
+	 * 15 retries x msleep(20) gives ~300ms of tolerance, comfortably
+	 * above dropouts observed to self-recover within ~170-190ms.
+	 */
+	int retries = 15;
 #endif
 
 	BUG_ON(!host);
@@ -1232,7 +1243,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 		err = mmc_send_status(host->card, NULL);
 		if (err) {
 			retries--;
-			udelay(5);
+			msleep(20);
 			continue;
 		}
 		break;
